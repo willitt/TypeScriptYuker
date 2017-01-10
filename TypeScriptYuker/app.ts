@@ -76,7 +76,7 @@ class Player {
             promptStatement += "Cards In Play: \n";
             promptStatement += generalFunctions.createCardStringArray(cardsInPlay);
         }
-        promptStatement += "Suit for Round: " + trumpForRound + "\n";
+        promptStatement += "Trump for round: " + trumpForRound + "\n";
         promptStatement += "Cards In Hand: \n";
         promptStatement += this.createPlayerOptions(this.hand);
         promptStatement += "Enter the number of the card you would like to play";
@@ -232,7 +232,7 @@ class Deck {
         });
     }
     shuffleDeck() {
-        var newDeck: Array<Card>;
+        var newDeck: Array<Card> = [];
         var oldDeck: Array<Card> = this.cards;
 
         while (oldDeck.length > 0) {
