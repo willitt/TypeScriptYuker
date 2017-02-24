@@ -14,8 +14,9 @@ var PlayedCard = (function () {
     return PlayedCard;
 }());
 var Player = (function () {
-    function Player(team, isComputer) {
+    function Player(team, isComputer, playerNum) {
         this.team = team;
+        this.playerNum = playerNum;
         this.isComputer = isComputer;
         this.hand = [];
     }
@@ -56,8 +57,9 @@ var Player = (function () {
     };
     Player.prototype.setTrump = function (card) {
     };
-    Player.prototype.playerTurn = function (cardsInPlay, winningCard, trumpForRound, playerNum) {
+    Player.prototype.playerTurn = function (cardsInPlay, winningCard, trumpForRound) {
         var promptStatement = "";
+        promptStatement += "Player " + this.playerNum + " for Team: " + this.team.teamNumber + " Turn\n";
         if (cardsInPlay.length > 0) {
             promptStatement += "Cards In Play: \n";
             promptStatement += generalFunctions.createCardStringArray(cardsInPlay);
@@ -69,42 +71,42 @@ var Player = (function () {
         var playerInput = prompt(promptStatement), playerSelectedNum = parseInt(playerInput);
         if (isNaN(playerSelectedNum) || playerSelectedNum > this.hand.length || playerSelectedNum < 0) {
             alert("INVALID SELECTION PLEASE SELECT AGAIN");
-            this.playerTurn(cardsInPlay, winningCard, trumpForRound, playerNum);
+            this.playerTurn(cardsInPlay, winningCard, trumpForRound);
         }
         else {
-            return this.hand[playerSelectedNum];
+            return this.hand.slice(playerSelectedNum, 1)[0];
         }
     };
-    Player.prototype.playerDiscard = function (cardForTrump, playerNum) {
-        var promptStatement = "Greetings Player " + playerNum + "\n Card Received: " + generalFunctions.mapValueToCardName(cardForTrump) + " of " + cardForTrump.suit + "\n";
+    Player.prototype.playerDiscard = function (cardForTrump) {
+        var promptStatement = "Greetings Player " + this.playerNum + "\n Card Received: " + generalFunctions.mapValueToCardName(cardForTrump) + " of " + cardForTrump.suit + "\n";
         promptStatement += "Select Card from hand to discard \n";
         promptStatement += this.createPlayerOptions(this.hand);
         var playerSelectedNum = parseInt(prompt(promptStatement));
         if (isNaN(playerSelectedNum) || playerSelectedNum < 0 || playerSelectedNum > this.hand.length) {
             alert("INVALID SELECTION PLEASE SELECT AGAIN");
-            this.playerDiscard(cardForTrump, playerNum);
+            this.playerDiscard(cardForTrump);
         }
         else {
             this.hand.splice(playerSelectedNum, 1);
         }
     };
-    Player.prototype.playerSelectTrumpFirstPass = function (cardForTrump, playerToReceiveNum, playerToReceive, playerNum) {
-        var promptStatement = "Greetings Player " + playerNum + "\n Cards In Hand: \n";
+    Player.prototype.playerSelectTrumpFirstPass = function (cardForTrump, playerToReceiveNum, playerToReceive) {
+        var promptStatement = "Greetings Player " + this.playerNum + " on Team " + this.team.teamNumber + "\nCards In Hand: \n";
         promptStatement += generalFunctions.createCardStringArray(this.hand);
         promptStatement += "Card To Determine Trump: " + generalFunctions.mapValueToCardName(cardForTrump) + " of " + cardForTrump.suit + "\n";
-        promptStatement += "Player to Receive Card: " + "Player " + playerToReceiveNum + " on Team " + playerToReceive.team.teamNumber + "\n";
+        promptStatement += "Player to Receive Card: " + "Player " + playerToReceive.playerNum + " on Team " + playerToReceive.team.teamNumber + "\n";
         promptStatement += "Enter 1 to set card as trump enter 0 to pass";
         var playerInput = prompt(promptStatement), playerSelectedNum = parseInt(playerInput);
         if (isNaN(playerSelectedNum) || playerSelectedNum !== 0 && playerSelectedNum !== 1) {
             alert("INVALID SELECTION PLEASE SELECT AGAIN");
-            this.playerSelectTrumpFirstPass(cardForTrump, playerToReceiveNum, playerToReceive, playerNum);
+            this.playerSelectTrumpFirstPass(cardForTrump, playerToReceiveNum, playerToReceive);
         }
         else {
             return playerSelectedNum;
         }
     };
-    Player.prototype.playerSelectTrumpSecondPass = function (cardForTrump, playerNum) {
-        var promptStatement = "Greetings Player " + playerNum + "\n Cards In Hand: \n";
+    Player.prototype.playerSelectTrumpSecondPass = function (cardForTrump) {
+        var promptStatement = "Greetings Player " + this.playerNum + "\n Cards In Hand: \n";
         promptStatement += generalFunctions.createCardStringArray(this.hand);
         promptStatement += "Select number to set trump suit \n";
         var suits = [new Suit("clubs", 0), new Suit("spades", 1), new Suit("hearts", 2), new Suit("diamonds", 3)], availableSuitNums = [];
@@ -121,7 +123,7 @@ var Player = (function () {
         }
         else if (isNaN(playerSelectedNum) || availableSuitNums.indexOf(playerSelectedNum) === -1 && playerSelectedNum !== 4) {
             alert("INVALID SELECTION PLEASE SELECT AGAIN");
-            this.playerSelectTrumpSecondPass(cardForTrump, playerNum);
+            this.playerSelectTrumpSecondPass(cardForTrump);
         }
         else {
             var selectedSuit;
@@ -216,13 +218,15 @@ var Deck = (function () {
 var YukerGame = (function () {
     function YukerGame() {
         this.deck = new Deck();
-        this.players = [new Player(this.team1, false), new Player(this.team2, false), new Player(this.team1, false), new Player(this.team2, false)];
+        this.players = [new Player(this.team1, false, 1), new Player(this.team2, false, 2), new Player(this.team1, false, 3), new Player(this.team2, false, 4)];
     }
     YukerGame.prototype.beginGame = function () {
         this.currentTurn = Math.floor(Math.random() * 4);
         this.startingTurn = this.currentTurn + 1;
         this.team1 = new Team(1, 0);
         this.team2 = new Team(2, 0);
+        this.numRounds = 0;
+        this.numTricks = 0;
         this.players[0].setTeam(this.team1);
         this.players[1].setTeam(this.team2);
         this.players[2].setTeam(this.team1);
@@ -235,7 +239,7 @@ var YukerGame = (function () {
         this.deck.initDeck();
         this.deck.shuffleDeck();
         this.currentTurn = (this.currentTurn + 1) % 4;
-        this.startingTurn = (this.currentTurn + 1) % 4;
+        this.startingTurn = (this.startingTurn + 1) % 4;
         this.dealCards();
         this.determineTrump();
         this.playRound();
@@ -243,21 +247,25 @@ var YukerGame = (function () {
     YukerGame.prototype.playRound = function () {
         for (var j = 0; j < 5; j++) {
             for (var i = 0; i < 4; i++) {
-                var playerTurn = (this.currentTurn + i) % 4, currentPlayer = this.players[playerTurn], cardPlayed;
+                var playerTurn = (this.startingTurn + i) % 4, currentPlayer = this.players[playerTurn], cardPlayed;
                 if (currentPlayer.isComputer === true) {
                     this.computerPlayerTurn(currentPlayer);
                 }
                 else {
-                    cardPlayed = new PlayedCard(currentPlayer.playerTurn(this.cardsInPlay, this.winningCard, this.suitForRound, playerTurn), currentPlayer);
+                    cardPlayed = new PlayedCard(currentPlayer.playerTurn(this.cardsInPlay, this.winningCard, this.suitForRound), currentPlayer);
                     this.cardsInPlay.push(cardPlayed);
                     this.determineWinningCard(this.cardsInPlay);
                 }
             }
             this.winningCard.playedBy.team.incrementTricksWon();
+            this.declareTrickWinner(this.winningCard);
+            this.startingTurn = this.players.indexOf(this.winningCard.playedBy);
         }
+        this.numTricks = 0;
         this.determineTeamPoints(this.team1);
         this.determineTeamPoints(this.team2);
         if (this.team1.points < 10 && this.team2.points < 10) {
+            this.displayCurrentStats();
             this.team1.clearForRound();
             this.team2.clearForRound();
             this.beginRound;
@@ -309,6 +317,19 @@ var YukerGame = (function () {
             }
         }
     };
+    YukerGame.prototype.declareTrickWinner = function (winningCard) {
+        var displayMessage = "";
+        displayMessage += "Trick number " + this.numTricks + " won by Team " + winningCard.playedBy.team.teamNumber + "\n";
+        displayMessage += "With the " + generalFunctions.mapValueToCardName(winningCard) + " of " + winningCard.suit + "\n";
+        displayMessage += "Played by Player" + winningCard.playedBy.playerNum;
+        alert(displayMessage);
+    };
+    YukerGame.prototype.displayCurrentStats = function () {
+        var displayMessage = "End of round " + this.numRounds + "\n";
+        displayMessage += "Team 1 Points: " + this.team1.points + "\n";
+        displayMessage += "Team 2 Points: " + this.team2.points;
+        alert(displayMessage);
+    };
     YukerGame.prototype.displayVictor = function () {
         var displayMessage, victor, loser;
         if (this.team1.points > this.team2.points) {
@@ -339,10 +360,10 @@ var YukerGame = (function () {
                 currentPlayer.setTrump(this.cardForTrump);
             }
             else {
-                var playerTrumpChoice = currentPlayer.playerSelectTrumpFirstPass(this.cardForTrump, this.currentTurn, dealer, playerTurn);
+                var playerTrumpChoice = currentPlayer.playerSelectTrumpFirstPass(this.cardForTrump, this.currentTurn, dealer);
                 if (playerTrumpChoice) {
                     this.players[this.currentTurn].addCard(this.cardForTrump);
-                    this.players[this.currentTurn].playerDiscard(this.cardForTrump, this.currentTurn);
+                    this.players[this.currentTurn].playerDiscard(this.cardForTrump);
                     currentPlayer.team.teamSetTrump();
                     this.suitForRound = this.cardForTrump.suit;
                     return true;
@@ -355,12 +376,12 @@ var YukerGame = (function () {
                 currentPlayer.setTrump(this.cardForTrump);
             }
             else {
-                var playerTrumpChoiceRound2 = currentPlayer.playerSelectTrumpSecondPass(this.cardForTrump, playerTurn);
+                var playerTrumpChoiceRound2 = currentPlayer.playerSelectTrumpSecondPass(this.cardForTrump);
                 if (playerTrumpChoiceRound2 !== null) {
                     this.suitForRound = this.cardForTrump.suit;
                     currentPlayer.team.teamSetTrump();
+                    return true;
                 }
-                return true;
             }
         }
     };
@@ -378,6 +399,13 @@ var YukerGeneralFunctions = (function () {
         var cardsString = "";
         cards.forEach(function (card) {
             cardsString += "Card: " + generalFunctions.mapValueToCardName(card) + " of " + card.suit + "\n";
+        });
+        return cardsString;
+    };
+    YukerGeneralFunctions.prototype.createPlayerCardStringArray = function (cards) {
+        var cardsString = "";
+        cards.forEach(function (card) {
+            cardsString += "Card: " + generalFunctions.mapValueToCardName(card) + " of " + card.suit + " played by " + card.playedBy.team + "\n";
         });
         return cardsString;
     };
