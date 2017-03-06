@@ -28,7 +28,7 @@ class Player {
     team: Team;
     playerNum: number;
     isComputer: boolean;
-    constructor(team: Team, isComputer: boolean, playerNum : number) {
+    constructor(team: Team, isComputer: boolean, playerNum: number) {
         this.team = team;
         this.playerNum = playerNum;
         this.isComputer = isComputer;
@@ -41,7 +41,7 @@ class Player {
         this.hand.push(card);
     }
     playCard(card: Card) {
-        return this.hand.slice(this.hand.indexOf(card), 1)[0];
+        return this.hand.splice(this.hand.indexOf(card), 1)[0];
     }
     playHighestOffSuit(trump: string) {
         var cardToPlay: Card = null;
@@ -72,13 +72,14 @@ class Player {
     setTrump(card: Card) {
 
     }
-    playerTurn(cardsInPlay: Array<PlayedCard>, winningCard: Card, trumpForRound: string) {
+    playerTurn(cardsInPlay: Array<PlayedCard>, winningCard: Card, trumpForRound: string, suitForRound: string) {
         var promptStatement: string = "";
         promptStatement += "Player " + this.playerNum + " for Team: " + this.team.teamNumber + " Turn\n";
         if (cardsInPlay.length > 0) {
             promptStatement += "Cards In Play: \n";
             promptStatement += generalFunctions.createCardStringArray(cardsInPlay);
         }
+        promptStatement += "Suit for Round: " + suitForRound + "\n";
         promptStatement += "Trump for round: " + trumpForRound + "\n";
         promptStatement += "Cards In Hand: \n";
         promptStatement += this.createPlayerOptions(this.hand);
@@ -88,10 +89,10 @@ class Player {
 
         if (isNaN(playerSelectedNum) || playerSelectedNum > this.hand.length || playerSelectedNum < 0) {
             alert("INVALID SELECTION PLEASE SELECT AGAIN");
-            this.playerTurn(cardsInPlay, winningCard, trumpForRound);
+            return this.playerTurn(cardsInPlay, winningCard, trumpForRound, suitForRound);
         }
         else {
-            return this.hand.slice(playerSelectedNum, 1)[0];
+            return this.hand.splice(playerSelectedNum, 1)[0];
         }
     }
     playerDiscard(cardForTrump: PlayingCard) {
@@ -225,7 +226,7 @@ class Deck {
         this.initDeck();
     }
     initDeck() {
-        var suits: Array<string> = ["clubs", "spades", "hearts", "diamonds"],
+        var suits: Array<string> = ["Clubs", "Spades", "Hearts", "Diamonds"],
             self = this;
         this.cards = [];
         suits.forEach(function (suit) {
@@ -285,6 +286,7 @@ class YukerGame {
     }
 
     beginRound() {
+        this.numRounds++;
         this.cardsInPlay = [];
         this.winningCard = null;
         this.deck.initDeck();
@@ -306,13 +308,17 @@ class YukerGame {
                     this.computerPlayerTurn(currentPlayer);
                 }
                 else {
-                    cardPlayed = new PlayedCard(currentPlayer.playerTurn(this.cardsInPlay, this.winningCard, this.suitForRound), currentPlayer);
+                    cardPlayed = new PlayedCard(currentPlayer.playerTurn(this.cardsInPlay, this.winningCard, this.cardForTrump.suit, this.suitForRound), currentPlayer);
                     this.cardsInPlay.push(cardPlayed);
+                    if (i === 0) this.suitForRound = cardPlayed.suit;
                     this.determineWinningCard(this.cardsInPlay);
                 }
+
             }
+            this.numTricks++;
             this.winningCard.playedBy.team.incrementTricksWon();
             this.declareTrickWinner(this.winningCard);
+            this.cardsInPlay = [];
             this.startingTurn = this.players.indexOf(this.winningCard.playedBy);
         }
         this.numTricks = 0;
@@ -322,7 +328,7 @@ class YukerGame {
             this.displayCurrentStats();
             this.team1.clearForRound();
             this.team2.clearForRound();
-            this.beginRound;
+            this.beginRound();
         }
         else {
             this.displayVictor();
@@ -336,9 +342,13 @@ class YukerGame {
         var winningCard: PlayedCard = cards[0],
             suitForRound: string = cards[0].suit,
             self = this;
-        cards.forEach(function (card, index) {
-            if (winningCard.suit === self.cardForTrump.suit && card.suit === self.cardForTrump.suit && card.value > winningCard.value) {
-                winningCard = card;
+
+        for (var index = 1; index < cards.length; index++) {
+            var card = cards[index];
+            if (winningCard.suit === self.cardForTrump.suit && card.suit === self.cardForTrump.suit) {
+                if (card.value > winningCard.value) {
+                    winningCard = card;
+                }
             }
             else if (card.suit === self.cardForTrump.suit) {
                 winningCard = card;
@@ -346,7 +356,8 @@ class YukerGame {
             else if (winningCard.suit === suitForRound && card.suit === suitForRound && card.value > winningCard.value) {
                 winningCard = card;
             }
-        });
+        }
+
         this.winningCard = winningCard;
     }
 
@@ -417,6 +428,7 @@ class YukerGame {
     }
 
     determineTrump() {
+
         this.cardForTrump = this.deck.takeCard();
         for (var i: number = 1; i < this.players.length + 1; i++) {
             var playerTurn: number = (this.currentTurn + i) % 4,
@@ -433,6 +445,7 @@ class YukerGame {
                     this.players[this.currentTurn].playerDiscard(this.cardForTrump);
                     currentPlayer.team.teamSetTrump();
                     this.suitForRound = this.cardForTrump.suit;
+                    this.modifyCardsForTrump();
                     return true;
                 }
             }
@@ -452,6 +465,23 @@ class YukerGame {
                     return true;
                 }
             }
+        }
+    }
+
+    modifyCardsForTrump() {
+        this.players.forEach((player) => {
+            player.hand.forEach((card) => {
+                this.adjustForTrump(card);
+            });
+        });
+    }
+
+    adjustForTrump(card: Card) {
+        if (card.value === 2 && card.suit === this.suitForRound) {
+            card.value = 7;
+        }
+        else if (card.value === 2 && generalFunctions.mapToCorrespondingSuit(card.suit) === this.suitForRound) {
+            card.value = 6;
         }
     }
 
@@ -479,6 +509,19 @@ class YukerGeneralFunctions {
             cardsString += "Card: " + generalFunctions.mapValueToCardName(card) + " of " + card.suit + " played by " + card.playedBy.team + "\n";
         });
         return cardsString;
+    }
+
+    mapToCorrespondingSuit(suit: string) {
+        switch (suit) {
+            case "Spades":
+                return "Clubs";
+            case "Clubs":
+                return "Spades";
+            case "Hearts":
+                return "Diamonds";
+            case "Diamonds":
+                return "Hearts";
+        }
     }
 
     mapValueToCardName(card: PlayingCard) {

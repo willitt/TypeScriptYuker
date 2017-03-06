@@ -27,7 +27,7 @@ var Player = (function () {
         this.hand.push(card);
     };
     Player.prototype.playCard = function (card) {
-        return this.hand.slice(this.hand.indexOf(card), 1)[0];
+        return this.hand.splice(this.hand.indexOf(card), 1)[0];
     };
     Player.prototype.playHighestOffSuit = function (trump) {
         var cardToPlay = null;
@@ -57,13 +57,14 @@ var Player = (function () {
     };
     Player.prototype.setTrump = function (card) {
     };
-    Player.prototype.playerTurn = function (cardsInPlay, winningCard, trumpForRound) {
+    Player.prototype.playerTurn = function (cardsInPlay, winningCard, trumpForRound, suitForRound) {
         var promptStatement = "";
         promptStatement += "Player " + this.playerNum + " for Team: " + this.team.teamNumber + " Turn\n";
         if (cardsInPlay.length > 0) {
             promptStatement += "Cards In Play: \n";
             promptStatement += generalFunctions.createCardStringArray(cardsInPlay);
         }
+        promptStatement += "Suit for Round: " + suitForRound + "\n";
         promptStatement += "Trump for round: " + trumpForRound + "\n";
         promptStatement += "Cards In Hand: \n";
         promptStatement += this.createPlayerOptions(this.hand);
@@ -71,10 +72,10 @@ var Player = (function () {
         var playerInput = prompt(promptStatement), playerSelectedNum = parseInt(playerInput);
         if (isNaN(playerSelectedNum) || playerSelectedNum > this.hand.length || playerSelectedNum < 0) {
             alert("INVALID SELECTION PLEASE SELECT AGAIN");
-            this.playerTurn(cardsInPlay, winningCard, trumpForRound);
+            return this.playerTurn(cardsInPlay, winningCard, trumpForRound, suitForRound);
         }
         else {
-            return this.hand.slice(playerSelectedNum, 1)[0];
+            return this.hand.splice(playerSelectedNum, 1)[0];
         }
     };
     Player.prototype.playerDiscard = function (cardForTrump) {
@@ -193,7 +194,7 @@ var Deck = (function () {
         this.initDeck();
     }
     Deck.prototype.initDeck = function () {
-        var suits = ["clubs", "spades", "hearts", "diamonds"], self = this;
+        var suits = ["Clubs", "Spades", "Hearts", "Diamonds"], self = this;
         this.cards = [];
         suits.forEach(function (suit) {
             for (var i = 0; i < 6; i++) {
@@ -234,6 +235,7 @@ var YukerGame = (function () {
         this.beginRound();
     };
     YukerGame.prototype.beginRound = function () {
+        this.numRounds++;
         this.cardsInPlay = [];
         this.winningCard = null;
         this.deck.initDeck();
@@ -252,13 +254,17 @@ var YukerGame = (function () {
                     this.computerPlayerTurn(currentPlayer);
                 }
                 else {
-                    cardPlayed = new PlayedCard(currentPlayer.playerTurn(this.cardsInPlay, this.winningCard, this.suitForRound), currentPlayer);
+                    cardPlayed = new PlayedCard(currentPlayer.playerTurn(this.cardsInPlay, this.winningCard, this.cardForTrump.suit, this.suitForRound), currentPlayer);
                     this.cardsInPlay.push(cardPlayed);
+                    if (i === 0)
+                        this.suitForRound = cardPlayed.suit;
                     this.determineWinningCard(this.cardsInPlay);
                 }
             }
+            this.numTricks++;
             this.winningCard.playedBy.team.incrementTricksWon();
             this.declareTrickWinner(this.winningCard);
+            this.cardsInPlay = [];
             this.startingTurn = this.players.indexOf(this.winningCard.playedBy);
         }
         this.numTricks = 0;
@@ -268,7 +274,7 @@ var YukerGame = (function () {
             this.displayCurrentStats();
             this.team1.clearForRound();
             this.team2.clearForRound();
-            this.beginRound;
+            this.beginRound();
         }
         else {
             this.displayVictor();
@@ -279,9 +285,12 @@ var YukerGame = (function () {
     };
     YukerGame.prototype.determineWinningCard = function (cards) {
         var winningCard = cards[0], suitForRound = cards[0].suit, self = this;
-        cards.forEach(function (card, index) {
-            if (winningCard.suit === self.cardForTrump.suit && card.suit === self.cardForTrump.suit && card.value > winningCard.value) {
-                winningCard = card;
+        for (var index = 1; index < cards.length; index++) {
+            var card = cards[index];
+            if (winningCard.suit === self.cardForTrump.suit && card.suit === self.cardForTrump.suit) {
+                if (card.value > winningCard.value) {
+                    winningCard = card;
+                }
             }
             else if (card.suit === self.cardForTrump.suit) {
                 winningCard = card;
@@ -289,7 +298,7 @@ var YukerGame = (function () {
             else if (winningCard.suit === suitForRound && card.suit === suitForRound && card.value > winningCard.value) {
                 winningCard = card;
             }
-        });
+        }
         this.winningCard = winningCard;
     };
     YukerGame.prototype.determineTeamPoints = function (team) {
@@ -366,6 +375,7 @@ var YukerGame = (function () {
                     this.players[this.currentTurn].playerDiscard(this.cardForTrump);
                     currentPlayer.team.teamSetTrump();
                     this.suitForRound = this.cardForTrump.suit;
+                    this.modifyCardsForTrump();
                     return true;
                 }
             }
@@ -383,6 +393,22 @@ var YukerGame = (function () {
                     return true;
                 }
             }
+        }
+    };
+    YukerGame.prototype.modifyCardsForTrump = function () {
+        var _this = this;
+        this.players.forEach(function (player) {
+            player.hand.forEach(function (card) {
+                _this.adjustForTrump(card);
+            });
+        });
+    };
+    YukerGame.prototype.adjustForTrump = function (card) {
+        if (card.value === 2 && card.suit === this.suitForRound) {
+            card.value = 7;
+        }
+        else if (card.value === 2 && generalFunctions.mapToCorrespondingSuit(card.suit) === this.suitForRound) {
+            card.value = 6;
         }
     };
     YukerGame.prototype.computerPlayerTurn = function (currentPlayer) {
@@ -408,6 +434,18 @@ var YukerGeneralFunctions = (function () {
             cardsString += "Card: " + generalFunctions.mapValueToCardName(card) + " of " + card.suit + " played by " + card.playedBy.team + "\n";
         });
         return cardsString;
+    };
+    YukerGeneralFunctions.prototype.mapToCorrespondingSuit = function (suit) {
+        switch (suit) {
+            case "Spades":
+                return "Clubs";
+            case "Clubs":
+                return "Spades";
+            case "Hearts":
+                return "Diamonds";
+            case "Diamonds":
+                return "Hearts";
+        }
     };
     YukerGeneralFunctions.prototype.mapValueToCardName = function (card) {
         switch (card.value) {
